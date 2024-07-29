@@ -1,7 +1,7 @@
 <div class="container mat-elevation-z8">
   <div class="filter-container">
     <mat-form-field appearance="fill">
-      <mat-label>Base Currency</mat-label>
+      <mat-label>From Currency</mat-label>
       <mat-select [(value)]="selectedBasedCurrency" (selectionChange)="loadCurrencyRates()">
         <mat-option *ngFor="let currency of currencySymbols" [value]="currency">
           {{ currency }}
@@ -23,7 +23,7 @@
     <mat-spinner class="spinner"></mat-spinner>
   </div>
 
-  <table *ngIf="!isLoading" mat-table [dataSource]="dataSource" class="mat-elevation-z8">
+  <table *ngIf="!isLoading" mat-table [dataSource]="dataSource">
     <ng-container matColumnDef="currency">
       <th mat-header-cell *matHeaderCellDef> Currency </th>
       <td mat-cell *matCellDef="let element"> {{element.toCurrency.symbol}} </td>
@@ -37,7 +37,7 @@
     <ng-container matColumnDef="rate">
       <th mat-header-cell *matHeaderCellDef>
         Rate
-        <mat-icon matTooltip="in base currency" matTooltipPosition="below" class="tooltip-icon">info</mat-icon>
+        <mat-icon matTooltip="in 'From currency'" matTooltipPosition="below" class="tooltip-icon">info</mat-icon>
       </th>
       <td mat-cell *matCellDef="let element"> {{element.rate}}</td>
     </ng-container>

@@ -7,7 +7,7 @@ export interface Currency {
 
 export interface CurrencyRate {
   id: number;
-  baseCurrencyId: number;
+  fromCurrencyId: number;
   toCurrency: Currency;
   rate: string;
   lastUpdated: string;

@@ -1,44 +1,29 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { environment } from '../../environments/environment';
-import { catchError } from 'rxjs/operators';
-import { throwError } from 'rxjs';
-import { NotificationService } from './notification.service';
+import { HttpParams } from '@angular/common/http';
+import { BaseAPIService } from './base-api.service';
 import { CurrencyRateResponse } from '../types/currency.interface';
 
 @Injectable({
   providedIn: 'root',
 })
-export class CurrencyService {
-  private apiUrl = environment.apiUrl;
+export class CurrencyService extends BaseAPIService {
+  constructor() {
+    super();
+  }
 
-  constructor(
-    private http: HttpClient,
-    private notificationService: NotificationService
-  ) {}
+  getCurrencyRates(requestParams: {
+    fromCurrency: string;
+    page: number;
+    limit: number;
+    filter: string[];
+  }) {
+    const { fromCurrency, page, limit, filter } = requestParams;
+    const params = new HttpParams()
+      .set('convert', fromCurrency)
+      .set('page', page.toString())
+      .set('limit', limit.toString())
+      .set('filter', filter.join(','));
 
-  getCurrencyRates(
-    baseCurrency: string,
-    page: number,
-    limit: number,
-    filter: string[]
-  ) {
-    return this.http
-      .get<CurrencyRateResponse>(`${this.apiUrl}/conversion/rate`, {
-        params: {
-          convert: baseCurrency,
-          page: page.toString(),
-          limit: limit.toString(),
-          filter: filter.join(','),
-        },
-      })
-      .pipe(
-        catchError((error: HttpErrorResponse) => {
-          this.notificationService.show(
-            'Failed to load data. Please try again later.'
-          );
-          return throwError(error);
-        })
-      );
+    return this.get<CurrencyRateResponse>('conversion/rate', params);
   }
 }

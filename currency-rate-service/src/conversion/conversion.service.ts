@@ -14,16 +14,16 @@ export class ConversionService {
   ) {}
 
   async getCurrencyRates(
-    baseCurrency: string,
+    fromCurrency: string,
     page: number,
     limit: number,
     filter: string[] = [],
   ) {
-    const baseCurrencyEntity = await this.currencyRepository.findOne({
-      where: { symbol: baseCurrency },
+    const fromCurrencyEntity = await this.currencyRepository.findOne({
+      where: { symbol: fromCurrency },
     });
 
-    if (!baseCurrencyEntity) {
+    if (!fromCurrencyEntity) {
       throw new HttpException(
         'Base currency not found',
         HttpStatus.BAD_REQUEST,
@@ -32,9 +32,9 @@ export class ConversionService {
 
     const query = this.currencyRateRepository
       .createQueryBuilder('rate')
-      .leftJoinAndSelect('rate.baseCurrency', 'baseCurrency')
+      .leftJoinAndSelect('rate.fromCurrency', 'fromCurrency')
       .leftJoinAndSelect('rate.toCurrency', 'toCurrency')
-      .where('baseCurrency.symbol = :baseCurrency', { baseCurrency });
+      .where('fromCurrency.symbol = :fromCurrency', { fromCurrency });
 
     if (filter.length > 0) {
       query.andWhere('toCurrency.symbol IN (:...filter)', { filter });
@@ -50,7 +50,7 @@ export class ConversionService {
       id: rate.id,
       rate: rate.rate,
       lastUpdated: rate.lastUpdated,
-      baseCurrencyId: rate.baseCurrency.id,
+      fromCurrencyId: rate.fromCurrency.id,
       toCurrency: {
         id: rate.toCurrency.id,
         name: rate.toCurrency.name,

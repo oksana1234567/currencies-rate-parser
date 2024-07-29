@@ -14,7 +14,7 @@ export class CurrencyRate {
 
   @ManyToOne(() => Currency)
   @JoinColumn({ name: 'base_currency_id' })
-  baseCurrency: Currency;
+  fromCurrency: Currency;
 
   @ManyToOne(() => Currency)
   @JoinColumn({ name: 'to_currency_id' })

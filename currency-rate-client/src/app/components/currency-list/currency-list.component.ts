@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
-import { CurrencyService } from '../../services/currency.service';
+import { Component, inject, OnInit } from '@angular/core';
 import { MatTableDataSource } from '@angular/material/table';
-import { CURRENCY_SYMBOLS } from '../../config/currency.config';
-import { NotificationService } from '../../services/notification.service';
-import { CurrencyRate } from '../../types/currency.interface';
 import { PageEvent } from '@angular/material/paginator';
+
+import { CurrencyService } from '../../services/currency.service';
+import { NotificationService } from '../../services/notification.service';
+
+import { CurrencyRate } from '../../types/currency.interface';
+import { CurrencySymbols } from '../../enum/currency.enum';
 
 @Component({
   selector: 'app-currency-list',
@@ -13,19 +15,17 @@ import { PageEvent } from '@angular/material/paginator';
 })
 export class CurrencyListComponent implements OnInit {
   displayedColumns: string[] = ['currency', 'name', 'rate'];
-  dataSource = new MatTableDataSource<any>();
+  dataSource = new MatTableDataSource<CurrencyRate>();
   pageSize = 10;
   currentPage = 1;
   totalItems = 0;
   filterValue: string[] = [];
-  selectedBasedCurrency = 'UAH';
+  selectedBasedCurrency = CurrencySymbols.UAH;
   isLoading = false;
-  currencySymbols = CURRENCY_SYMBOLS;
-
-  constructor(
-    private currencyService: CurrencyService,
-    private notificationService: NotificationService
-  ) {}
+  currencySymbols = Object.values(CurrencySymbols);
+  private currencyService = inject(CurrencyService);
+  private notificationService = inject(NotificationService);
+  constructor() {}
 
   ngOnInit(): void {
     this.loadCurrencyRates();
@@ -34,12 +34,12 @@ export class CurrencyListComponent implements OnInit {
   loadCurrencyRates() {
     this.isLoading = true;
     this.currencyService
-      .getCurrencyRates(
-        this.selectedBasedCurrency,
-        this.currentPage,
-        this.pageSize,
-        this.filterValue
-      )
+      .getCurrencyRates({
+        fromCurrency: this.selectedBasedCurrency,
+        page: this.currentPage,
+        limit: this.pageSize,
+        filter: this.filterValue,
+      })
       .subscribe(
         (response) => {
           if (response.data.length === 0) {
@@ -61,6 +61,7 @@ export class CurrencyListComponent implements OnInit {
   }
 
   applyFilter() {
+    this.currentPage = 1;
     this.loadCurrencyRates();
   }
 

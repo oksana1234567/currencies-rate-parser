@@ -75,7 +75,7 @@ export class CurrencyService implements OnModuleInit {
       const REQUEST_LIMIT = 30;
       const pause = 60000 / REQUEST_LIMIT;
 
-      for (const baseCurrency of currencies) {
+      for (const fromCurrency of currencies) {
         await sleep(pause);
 
         const rateUrl = `${apiUrl}/v2/cryptocurrency/quotes/latest`;
@@ -86,7 +86,7 @@ export class CurrencyService implements OnModuleInit {
             this.httpService
               .get(rateUrl, {
                 headers: { 'X-CMC_PRO_API_KEY': apiKey },
-                params: { id: ids, convert: baseCurrency.symbol },
+                params: { id: ids, convert: fromCurrency.symbol },
               })
               .pipe(
                 catchError((error) => {
@@ -102,15 +102,15 @@ export class CurrencyService implements OnModuleInit {
         const data = rateResponse.data.data;
 
         for (const rateCurrency of currencies) {
-          if (baseCurrency.id !== rateCurrency.id) {
+          if (fromCurrency.id !== rateCurrency.id) {
             const rate =
-              data[rateCurrency.id]?.quote?.[baseCurrency.symbol]?.price ||
+              data[rateCurrency.id]?.quote?.[fromCurrency.symbol]?.price ||
               null;
 
             if (rate !== null) {
               const existingRate = await this.currencyRateRepository.findOne({
                 where: {
-                  baseCurrency: { id: baseCurrency.id },
+                  fromCurrency: { id: fromCurrency.id },
                   toCurrency: { id: rateCurrency.id },
                 },
               });
@@ -121,7 +121,7 @@ export class CurrencyService implements OnModuleInit {
                 await this.currencyRateRepository.save(existingRate);
               } else {
                 await this.currencyRateRepository.save({
-                  baseCurrency,
+                  fromCurrency,
                   toCurrency: rateCurrency,
                   rate,
                   lastUpdated: new Date(),
