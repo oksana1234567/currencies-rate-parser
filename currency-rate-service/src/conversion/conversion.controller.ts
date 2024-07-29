@@ -7,7 +7,7 @@ export class ConversionController {
 
   @Get('rate')
   async convertPrice(
-    @Query('convert') convert: string = 'USD',
+    @Query('convert') convert: string = 'UAH',
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @Query('filter') filter: string = '',

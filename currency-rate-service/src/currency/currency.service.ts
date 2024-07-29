@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  HttpException,
-  HttpStatus,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
@@ -17,6 +12,11 @@ import { retry, sleep } from 'src/helpers/currency-helpers';
 
 @Injectable()
 export class CurrencyService implements OnModuleInit {
+  private REQUEST_LIMIT = 30;
+  private pause = 60000 / this.REQUEST_LIMIT;
+  private apiKey: string;
+  private apiUrl: string;
+
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
@@ -27,115 +27,133 @@ export class CurrencyService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    this.apiKey = this.configService.get<string>('COINMARKETCAP_API_KEY');
+    this.apiUrl = this.configService.get<string>('API_URL');
+    if (!this.apiKey) {
+      throw new Error('API key is not defined');
+    }
+
     await this.fetchAndSaveCurrencyRates();
   }
 
   @Cron('0 * * * *')
   async fetchAndSaveCurrencyRates() {
-    const apiKey = this.configService.get<string>('COINMARKETCAP_API_KEY');
-    const apiUrl = this.configService.get<string>('API_URL');
-
-    if (!apiKey) {
-      throw new HttpException(
-        'API key is not defined',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+    try {
+      const currencies = await this.fetchCurrencies();
+      if (currencies.length) {
+        await this.saveCurrencies(currencies);
+        await this.fetchAndSaveRates(currencies);
+      }
+    } catch (error) {
+      throw new Error(
+        `Error occurred during conversion process: ${error.message}`,
       );
     }
+  }
 
-    const url = `${apiUrl}/v1/fiat/map`;
-
-    try {
-      const response = await retry(() =>
+  private async fetchCurrencies(): Promise<Currency[]> {
+    const url = `${this.apiUrl}/v1/fiat/map`;
+    const response = await retry(
+      () =>
         lastValueFrom(
           this.httpService
             .get(url, {
-              headers: { 'X-CMC_PRO_API_KEY': apiKey },
+              headers: { 'X-CMC_PRO_API_KEY': this.apiKey },
             })
             .pipe(
               catchError((error) => {
-                throw new HttpException(
+                throw new Error(
                   `Failed to fetch currency data: ${error.message}`,
-                  HttpStatus.BAD_REQUEST,
                 );
               }),
             ),
         ),
-      );
+      this.pause,
+    );
 
-      const currencies: Currency[] = response.data.data;
-      await this.currencyRepository.save(
-        currencies.map((currency) => ({
-          id: currency.id,
-          name: currency.name,
-          sign: currency.sign,
-          symbol: currency.symbol,
-        })),
-      );
+    return response.data?.data || [];
+  }
 
-      const REQUEST_LIMIT = 30;
-      const pause = 60000 / REQUEST_LIMIT;
+  private async saveCurrencies(currencies: Currency[]) {
+    await this.currencyRepository.save(
+      currencies.map((currency) => ({
+        id: currency.id,
+        name: currency.name,
+        sign: currency.sign,
+        symbol: currency.symbol,
+      })),
+    );
+  }
 
-      for (const fromCurrency of currencies) {
-        await sleep(pause);
+  private async fetchAndSaveRates(currencies: Currency[]) {
+    for (const fromCurrency of currencies) {
+      await sleep(this.pause);
+      await this.fetchAndSaveRateForCurrency(fromCurrency, currencies);
+    }
+  }
 
-        const rateUrl = `${apiUrl}/v2/cryptocurrency/quotes/latest`;
-        const ids = currencies.map((currency) => currency.id).join(',');
+  private async fetchAndSaveRateForCurrency(
+    fromCurrency: Currency,
+    currencies: Currency[],
+  ) {
+    const rateUrl = `${this.apiUrl}/v2/cryptocurrency/quotes/latest`;
+    const ids = currencies.map((currency) => currency.id).join(',');
 
-        const rateResponse = await retry(() =>
-          lastValueFrom(
-            this.httpService
-              .get(rateUrl, {
-                headers: { 'X-CMC_PRO_API_KEY': apiKey },
-                params: { id: ids, convert: fromCurrency.symbol },
-              })
-              .pipe(
-                catchError((error) => {
-                  throw new HttpException(
-                    `Failed to fetch conversion rates: ${error.message}`,
-                    HttpStatus.BAD_REQUEST,
-                  );
-                }),
-              ),
-          ),
-        );
+    const rateResponse = await retry(
+      () =>
+        lastValueFrom(
+          this.httpService
+            .get(rateUrl, {
+              headers: { 'X-CMC_PRO_API_KEY': this.apiKey },
+              params: { id: ids, convert: fromCurrency.symbol },
+            })
+            .pipe(
+              catchError((error) => {
+                throw new Error(
+                  `Failed to fetch conversion rates: ${error.message}`,
+                );
+              }),
+            ),
+        ),
+      this.pause,
+    );
 
-        const data = rateResponse.data.data;
+    const data = rateResponse.data?.data || [];
+    await this.saveRates(fromCurrency, currencies, data);
+  }
 
-        for (const rateCurrency of currencies) {
-          if (fromCurrency.id !== rateCurrency.id) {
-            const rate =
-              data[rateCurrency.id]?.quote?.[fromCurrency.symbol]?.price ||
-              null;
+  private async saveRates(
+    fromCurrency: Currency,
+    currencies: Currency[],
+    data: any,
+  ) {
+    for (const rateCurrency of currencies) {
+      if (fromCurrency.id !== rateCurrency.id) {
+        const rate =
+          data[rateCurrency.id]?.quote?.[fromCurrency.symbol]?.price || null;
 
-            if (rate !== null) {
-              const existingRate = await this.currencyRateRepository.findOne({
-                where: {
-                  fromCurrency: { id: fromCurrency.id },
-                  toCurrency: { id: rateCurrency.id },
-                },
-              });
+        if (rate !== null) {
+          const existingRate = await this.currencyRateRepository.findOne({
+            where: {
+              fromCurrency: { id: fromCurrency.id },
+              toCurrency: { id: rateCurrency.id },
+            },
+          });
 
-              if (existingRate) {
-                existingRate.rate = rate;
-                existingRate.lastUpdated = new Date();
-                await this.currencyRateRepository.save(existingRate);
-              } else {
-                await this.currencyRateRepository.save({
-                  fromCurrency,
-                  toCurrency: rateCurrency,
-                  rate,
-                  lastUpdated: new Date(),
-                });
-              }
-            }
+          if (existingRate) {
+            existingRate.rate = rate;
+            existingRate.lastUpdated = new Date();
+            await this.currencyRateRepository.save(existingRate);
+          } else {
+            await this.currencyRateRepository.save({
+              fromCurrency,
+              toCurrency: rateCurrency,
+              rate,
+              lastUpdated: new Date(),
+            });
           }
         }
       }
-    } catch (error) {
-      throw new HttpException(
-        `Error occurred during conversion process: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
     }
   }
 }

@@ -24,10 +24,7 @@ export class ConversionService {
     });
 
     if (!fromCurrencyEntity) {
-      throw new HttpException(
-        'Base currency not found',
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('From currency not found', HttpStatus.NOT_FOUND);
     }
 
     const query = this.currencyRateRepository

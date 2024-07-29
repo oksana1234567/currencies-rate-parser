@@ -9,6 +9,7 @@ export const sleep = (ms: number): Promise<void> => {
 
 export const retry = async <T>(
   fn: () => Promise<T>,
+  pause = 2000,
   retries = 3,
 ): Promise<T> => {
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -18,7 +19,7 @@ export const retry = async <T>(
       if (attempt === retries) {
         throw error;
       }
-      await sleep(2000);
+      await sleep(pause);
     }
   }
   throw new Error('Max retries exceeded');
