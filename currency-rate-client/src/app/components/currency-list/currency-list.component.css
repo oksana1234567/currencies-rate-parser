@@ -1,0 +1,67 @@
+.container {
+  width: 100%;
+  max-width: 90%;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.filter-container {
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filter-container mat-form-field {
+  margin-right: 16px;
+  width: 20%;
+}
+
+.filter-container mat-form-field:last-child {
+  margin-right: 0;
+}
+
+.mat-column-rate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip-icon {
+  vertical-align: bottom;
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+}
+
+@media (max-width: 600px) {
+  .filter-container {
+    flex-direction: column;
+  }
+
+  .filter-container mat-form-field {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 16px;
+  }
+
+  .filter-container mat-form-field:last-child {
+    margin-bottom: 0;
+  }
+
+  .mat-column-rate {
+    max-width: 100px;
+  }
+}
