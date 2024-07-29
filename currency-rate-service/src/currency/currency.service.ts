@@ -33,7 +33,8 @@ export class CurrencyService implements OnModuleInit {
       throw new Error('API key is not defined');
     }
 
-    await this.fetchAndSaveCurrencyRates();
+    // Run the fetchAndSaveCurrencyRates function in the background, not block app
+    setTimeout(() => this.fetchAndSaveCurrencyRates(), 0);
   }
 
   @Cron('0 * * * *')
